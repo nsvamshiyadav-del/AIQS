@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Airquality — Last 24 Hours</title>
+  <style>
+    body{font-family:Inter,Arial,Helvetica,sans-serif;padding:18px;background:#f7fafc;color:#0f172a}
+    table{border-collapse:collapse;width:100%;max-width:1100px;background:#fff;border-radius:8px;overflow:hidden}
+    th,td{padding:10px 12px;border-bottom:1px solid #eef2f7;text-align:left}
+    thead th{background:#f1f5f9;font-weight:600}
+    tbody tr:hover{background:#f8fafc}
+    .muted{color:#6b7280;font-size:13px}
+    .container{max-width:1100px;margin:0 auto}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Airquality — Last 24 Hours</h1>
+    <p class="muted">Columns: timestamp, device_id, pm2_5, pm10, aqi, aqi_category, risk_level</p>
+    <table>
+      <thead>
+        <tr>
+          <th>timestamp</th>
+          <th>device_id</th>
+          <th>pm2_5</th>
+          <th>pm10</th>
+          <th>aqi</th>
+          <th>aqi_category</th>
+          <th>risk_level</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>2025-11-28T09:37:09.480143</td>
+          <td>AQ_SENSOR_001</td>
+          <td>45.3</td>
+          <td>88.7</td>
+          <td>188.75</td>
+          <td>Unhealthy</td>
+          <td>Medium Risk</td>
+        </tr>
+        <tr>
+          <td>2025-11-29T05:01:54.838516</td>
+          <td>test-agent</td>
+          <td>35.2</td>
+          <td>60.0</td>
+          <td>146.66666666666669</td>
+          <td>Unhealthy for Sensitive Groups</td>
+          <td>Medium Risk</td>
+        </tr>
+        <tr>
+          <td>2025-11-29T05:06:28.116473</td>
+          <td>sensor-1</td>
+          <td>12.3</td>
+          <td>25.0</td>
+          <td>51.25000000000001</td>
+          <td>Moderate</td>
+          <td>Low Risk</td>
+        </tr>
+        <tr>
+          <td>2025-11-29T05:06:28.169430</td>
+          <td>sensor-2</td>
+          <td>80.5</td>
+          <td>120.0</td>
+          <td>335.41666666666663</td>
+          <td>Hazardous</td>
+          <td>High Risk</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

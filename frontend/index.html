@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Real-Time Air Quality Monitor</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Real-Time Air Quality Monitor</h1>
+    <p class="subtitle">Live AQI, PM2.5 trends and health guidance</p>
+  </header>
+
+  <main>
+    <section id="current-card" class="card">
+      <div class="card-left">
+        <h2>Current</h2>
+        <div class="aqi-value">
+          <span id="aqi">--</span>
+          <small>AQI</small>
+        </div>
+        <div class="meta">
+          <div>Category: <strong id="category">--</strong></div>
+          <div>Risk: <strong id="risk">--</strong></div>
+          <div>Device: <strong id="device">--</strong></div>
+        </div>
+      </div>
+      <div class="card-right">
+        <div>Last updated</div>
+        <div id="time">--</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>AQI Gauge</h2>
+      <div class="gauge-wrap">
+        <canvas id="aqi-gauge"></canvas>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Last 60 minutes (PM2.5)</h2>
+      <div class="chart-wrap">
+        <canvas id="chart"></canvas>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>AQI Trend (last 24h)</h2>
+      <div class="chart-wrap">
+        <canvas id="aqi-trend-chart"></canvas>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Average Pollutants (last 24h)</h2>
+      <div class="chart-wrap small-chart">
+        <canvas id="pollutants-bar"></canvas>
+      </div>
+    </section>
+
+    <section class="card" id="history-table-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <h2 style="margin:0">History (rows & columns)</h2>
+          <label style="display:flex;align-items:center;gap:6px;margin-left:6px">Filter device:
+            <input id="filter-device" type="text" placeholder="device id or substring" style="padding:6px;border-radius:6px;border:1px solid #e6eef8" />
+          </label>
+          <label style="display:flex;align-items:center;gap:6px">Range:
+            <select id="filter-minutes" style="padding:6px;border-radius:6px;border:1px solid #e6eef8">
+              <option value="60">Last 60 minutes</option>
+              <option value="1440" selected>Last 24 hours</option>
+              <option value="10080">Last 7 days</option>
+            </select>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px">Page size:
+            <select id="page-size" style="padding:6px;border-radius:6px;border:1px solid #e6eef8">
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+              <option value="25">25</option>
+            </select>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px">Auto-scroll:
+            <input id="auto-scroll" type="checkbox" />
+          </label>
+        </div>
+
+        <div>
+          <button id="refresh-table" class="btn">Refresh</button>
+          <button id="export-csv" class="btn">Export CSV</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;margin-top:6px;flex-wrap:wrap">
+        <input id="csv-file" type="file" accept=".csv" />
+        <button id="upload-csv-btn" class="btn">Upload CSV</button>
+        <div id="upload-status" style="color:var(--muted);font-size:13px"></div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="history-table">
+          <thead>
+            <tr>
+              <th style="width:60px">#</th>
+              <th>timestamp</th>
+              <th>device_id</th>
+              <th>pm2_5</th>
+              <th>pm10</th>
+              <th>aqi</th>
+              <th>aqi_category</th>
+              <th>risk_level</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- rows inserted by script -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <small>Served by backend API</small>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/static/script.js"></script>
+</body>
+</html>

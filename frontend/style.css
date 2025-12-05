@@ -1,0 +1,69 @@
+:root{
+  --bg: #f4f7fb;
+  --card: #ffffff;
+  --muted: #6b7280;
+  --good: #10b981;
+  --moderate: #f59e0b;
+  --unhealthy: #ef4444;
+}
+
+*{box-sizing:border-box}
+
+body{
+  font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial;
+  margin:0;padding:24px;background:linear-gradient(180deg,var(--bg),#fff);color:#111827
+}
+
+header{ text-align:center;margin-bottom:16px }
+.subtitle{ color:var(--muted);margin-top:4px }
+
+main{ max-width:1100px;margin:0 auto;display:grid;gap:16px;grid-template-columns:1fr }
+
+.card{ background:var(--card);border-radius:12px;padding:18px;box-shadow:0 6px 18px rgba(15,23,42,0.06) }
+
+#current-card{ display:flex;align-items:center;justify-content:space-between }
+.card-left{ display:flex;flex-direction:column }
+.aqi-value{ font-size:48px;line-height:1;display:flex;align-items:baseline }
+.aqi-value small{ font-size:14px;color:var(--muted);margin-left:8px }
+.meta{ margin-top:8px;color:var(--muted);display:flex;gap:12px }
+.card-right{ text-align:right;color:var(--muted) }
+
+.chart-wrap{ width:100%;height:320px }
+canvas{ width:100% !important;height:320px !important }
+
+.small-chart{ height:220px }
+
+/* layout tweak: make visualization cards flow nicely */
+main{ grid-template-columns: 360px 1fr 360px; grid-auto-rows: auto }
+@media (max-width:1000px){ main{ grid-template-columns: 1fr } .small-chart{ height:260px } }
+
+/* AQI gauge */
+.gauge-wrap{ width:220px; height:220px; margin:10px auto }
+@media (min-width:1000px){ .gauge-wrap{ margin-left: 20px } }
+
+/* AQI color states applied to body via script */
+.aqi-good{ border-left:6px solid var(--good) }
+.aqi-moderate{ border-left:6px solid var(--moderate) }
+.aqi-bad{ border-left:6px solid var(--unhealthy) }
+
+/* Table styles */
+.table-wrap{ overflow:auto }
+table{ border-collapse:collapse;width:100%;min-width:720px }
+thead th{ background:#f1f5f9;padding:10px 12px;text-align:left;color:#0f172a }
+td,th{ padding:10px 12px;border-bottom:1px solid #eef2f7 }
+tbody tr:hover{ background:#f8fafc }
+
+.btn{ background:#2563eb;color:#fff;border:none;padding:8px 12px;border-radius:8px;margin-left:8px;cursor:pointer }
+.btn:active{ transform:translateY(1px) }
+
+.upload-status{ color:var(--muted); font-size:13px }
+
+footer{ text-align:center;color:var(--muted);font-size:13px;margin-top:18px }
+
+@media (min-width:800px){ main{ grid-template-columns:360px 1fr } .chart-wrap{ height:360px } canvas{ height:360px !important } }
+
+/* Pagination controls */
+.table-footer{ display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:12px }
+.pagination{ display:flex;align-items:center;gap:8px }
+.page-btn{ padding:6px 10px;border-radius:6px;border:1px solid #e6eef8;background:#fff;cursor:pointer }
+.page-info{ color:var(--muted) }
