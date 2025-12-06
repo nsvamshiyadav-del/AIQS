@@ -14,10 +14,12 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
+    phone = Column(String, nullable=True)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     email_notifications = Column(Boolean, default=True)
+    phone_notifications = Column(Boolean, default=True)
     last_notified = Column(DateTime, nullable=True)
 
 
@@ -25,6 +27,7 @@ class User(Base):
 class UserCreate(BaseModel):
     username: str
     email: str
+    phone: str
     password: str
 
 
@@ -37,8 +40,10 @@ class UserResponse(BaseModel):
     id: int
     username: str
     email: str
+    phone: str | None
     is_active: bool
     email_notifications: bool
+    phone_notifications: bool
     
     class Config:
         from_attributes = True

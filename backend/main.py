@@ -329,8 +329,10 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
     new_user = User(
         username=user_data.username,
         email=user_data.email,
+        phone=user_data.phone,
         hashed_password=hashed_pwd,
-        email_notifications=True
+        email_notifications=True,
+        phone_notifications=True
     )
     db.add(new_user)
     db.commit()
@@ -394,6 +396,34 @@ def toggle_notifications(enabled: bool, authorization: str = None, db: Session =
     user.email_notifications = enabled
     db.commit()
     return {"email_notifications": user.email_notifications}
+
+
+@app.put("/api/auth/preferences")
+def update_preferences(preferences: dict, authorization: str = None, db: Session = Depends(get_db)):
+    """Update user notification preferences and phone number."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization[7:]
+    payload = verify_token(token)
+    username = payload.get("sub")
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update preferences
+    if "email" in preferences:
+        user.email = preferences["email"]
+    if "phone" in preferences:
+        user.phone = preferences["phone"]
+    if "email_notifications" in preferences:
+        user.email_notifications = preferences["email_notifications"]
+    if "phone_notifications" in preferences:
+        user.phone_notifications = preferences["phone_notifications"]
+    
+    db.commit()
+    db.refresh(user)
+    return UserResponse.from_orm(user)
 
 
 # --- Notification Endpoints ---

@@ -5,198 +5,262 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Real-Time Air Quality Monitor</title>
   <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
   <style>
-    /* Login/Auth Modal Styles */
-    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4); }
-    .modal.show { display: flex; align-items: center; justify-content: center; }
-    .modal-content { background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px; width: 90%; }
-    .modal-header { font-size: 20px; font-weight: bold; margin-bottom: 20px; color: #333; }
-    .form-group { margin-bottom: 15px; }
-    .form-group label { display: block; font-weight: 500; color: #333; margin-bottom: 5px; }
-    .form-group input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
-    .btn { padding: 10px 20px; background-color: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
-    .btn:hover { background-color: #1d4ed8; }
-    .error-msg { color: #dc2626; font-size: 12px; margin-top: 5px; }
-    .header-auth { display: flex; align-items: center; gap: 12px; justify-content: flex-end; margin-top: 10px; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; }
+    
+    /* Auth Page */
+    #auth-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .auth-container { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); max-width: 450px; width: 90%; }
+    .auth-header { text-align: center; margin-bottom: 30px; }
+    .auth-header h1 { font-size: 28px; color: #333; margin-bottom: 8px; }
+    .auth-header p { color: #666; font-size: 14px; }
+    
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-weight: 600; color: #333; margin-bottom: 6px; font-size: 13px; }
+    .form-group input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; transition: border 0.3s; }
+    .form-group input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+    
+    .btn { padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 600; transition: all 0.3s; }
+    .btn-primary { background: #667eea; color: white; width: 100%; }
+    .btn-primary:hover { background: #5568d3; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
+    .btn-secondary { background: #f0f0f0; color: #333; width: 100%; margin-top: 8px; }
+    .btn-secondary:hover { background: #e0e0e0; }
+    
+    .form-tabs { display: flex; gap: 12px; margin-bottom: 24px; border-bottom: 2px solid #f0f0f0; }
+    .tab-btn { padding: 12px; background: none; border: none; cursor: pointer; color: #999; font-weight: 600; border-bottom: 3px solid transparent; transition: all 0.3s; font-size: 14px; }
+    .tab-btn.active { color: #667eea; border-bottom-color: #667eea; }
+    
+    .error-msg { color: #e53e3e; font-size: 13px; margin-top: 4px; padding: 8px; background: #fff5f5; border-radius: 4px; border-left: 3px solid #e53e3e; display: none; }
+    .success-msg { color: #22863a; font-size: 13px; margin-top: 4px; padding: 8px; background: #f6ffed; border-radius: 4px; border-left: 3px solid #52c41a; display: none; }
+    
+    /* Dashboard */
+    #dashboard { display: none; }
+    header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    header h1 { font-size: 28px; margin-bottom: 8px; }
+    header .subtitle { font-size: 14px; opacity: 0.9; }
+    
+    .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .user-info { display: flex; align-items: center; gap: 16px; }
+    .user-info span { font-size: 14px; }
+    .logout-btn { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+    .logout-btn:hover { background: rgba(255,255,255,0.3); }
+    
+    #notification-banner { display: none; padding: 12px 24px; background: #10b981; color: white; border-radius: 6px; font-weight: 500; margin-bottom: 16px; }
+    
+    .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+    
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+    @media (max-width: 1024px) { .grid-2 { grid-template-columns: 1fr; } }
+    
+    .card { background: white; padding: 24px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .card h2 { font-size: 16px; color: #333; margin-bottom: 16px; font-weight: 600; }
+    
+    /* Settings Card */
+    .settings-section { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #f0f0f0; }
+    .settings-section:last-child { border-bottom: none; }
+    .setting-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .setting-label { font-size: 14px; color: #333; font-weight: 500; }
+    .toggle { display: inline-flex; align-items: center; cursor: pointer; }
+    .toggle input { margin-right: 8px; cursor: pointer; width: auto; }
+    
+    /* Charts */
+    .chart-container { position: relative; height: 300px; margin-bottom: 24px; }
+    
+    /* Data Table */
+    .data-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    .data-table th { background: #f9fafb; padding: 12px; text-align: left; font-weight: 600; font-size: 13px; color: #666; border-bottom: 2px solid #e5e7eb; }
+    .data-table td { padding: 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
+    .data-table tr:hover { background: #f9fafb; }
+    
+    .aqi-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 12px; }
+    .aqi-good { background: #10b981; color: white; }
+    .aqi-moderate { background: #f59e0b; color: white; }
+    .aqi-unhealthy { background: #ef4444; color: white; }
   </style>
 </head>
 <body>
-  <header>
-    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-      <div>
-        <h1>Real-Time Air Quality Monitor</h1>
-        <p class="subtitle">Live AQI, PM2.5 trends and health guidance</p>
-      </div>
-      <div class="header-auth">
-        <span id="user-display" style="color: #666; font-size: 14px;"></span>
-        <button id="auth-btn" class="btn" style="background-color: #10b981;">Login</button>
-      </div>
-    </div>
-    <div id="notification-banner" style="display:none;padding:12px;margin-top:12px;background:#10b981;color:white;border-radius:6px;font-weight:500"></div>
-  </header>
 
-  <!-- Login/Register Modal -->
-  <div id="auth-modal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">Air Quality Monitor</div>
-      
-      <div id="login-form" style="display: block;">
-        <h3 style="margin-bottom: 15px; color: #333;">Login</h3>
+<!-- AUTH PAGE -->
+<div id="auth-page">
+  <div class="auth-container">
+    <div class="auth-header">
+      <h1>Air Quality Monitor</h1>
+      <p>Track air quality and get personalized alerts</p>
+    </div>
+
+    <!-- Login Tab -->
+    <div id="login-section" style="display: block;">
+      <div class="form-tabs">
+        <button class="tab-btn active" onclick="switchToLogin()">Login</button>
+        <button class="tab-btn" onclick="switchToRegister()">Register</button>
+      </div>
+
+      <form onsubmit="handleLogin(event)">
         <div class="form-group">
           <label>Username</label>
-          <input type="text" id="login-username" placeholder="Enter username">
+          <input type="text" id="login-username" placeholder="Enter your username" required>
         </div>
         <div class="form-group">
           <label>Password</label>
-          <input type="password" id="login-password" placeholder="Enter password">
+          <input type="password" id="login-password" placeholder="Enter your password" required>
         </div>
         <div id="login-error" class="error-msg"></div>
-        <button class="btn" onclick="handleLogin()" style="width: 100%; margin-top: 10px;">Login</button>
-        <p style="text-align: center; color: #666; margin-top: 15px; font-size: 14px;">
-          Don't have account? <a href="#" onclick="switchToRegister(event)" style="color: #2563eb; cursor: pointer;">Register</a>
-        </p>
+        <button type="submit" class="btn btn-primary">Login</button>
+      </form>
+    </div>
+
+    <!-- Register Tab -->
+    <div id="register-section" style="display: none;">
+      <div class="form-tabs">
+        <button class="tab-btn" onclick="switchToLogin()">Login</button>
+        <button class="tab-btn active" onclick="switchToRegister()">Register</button>
       </div>
-      
-      <div id="register-form" style="display: none;">
-        <h3 style="margin-bottom: 15px; color: #333;">Create Account</h3>
+
+      <form onsubmit="handleRegister(event)">
         <div class="form-group">
           <label>Username</label>
-          <input type="text" id="register-username" placeholder="Choose username">
+          <input type="text" id="register-username" placeholder="Choose a username" required>
         </div>
         <div class="form-group">
           <label>Email</label>
-          <input type="email" id="register-email" placeholder="Enter email">
+          <input type="email" id="register-email" placeholder="Enter your email" required>
+        </div>
+        <div class="form-group">
+          <label>Phone Number (for SMS alerts)</label>
+          <input type="tel" id="register-phone" placeholder="Enter your phone number" required>
         </div>
         <div class="form-group">
           <label>Password</label>
-          <input type="password" id="register-password" placeholder="Choose password">
+          <input type="password" id="register-password" placeholder="Create a password" required>
         </div>
         <div id="register-error" class="error-msg"></div>
-        <button class="btn" onclick="handleRegister()" style="width: 100%; margin-top: 10px;">Register</button>
-        <p style="text-align: center; color: #666; margin-top: 15px; font-size: 14px;">
-          Already have account? <a href="#" onclick="switchToLogin(event)" style="color: #2563eb; cursor: pointer;">Login</a>
-        </p>
-      </div>
+        <button type="submit" class="btn btn-primary">Create Account</button>
+      </form>
     </div>
   </div>
+</div>
 
-  <main>
-    <section class="card" id="notifications-card" style="display:none;background:#f0fdf4;border-left:4px solid #10b981">
-      <h2>📢 Latest Notifications</h2>
-      <div id="notifications-list" style="max-height:200px;overflow-y:auto"></div>
-    </section>
-
-    <section id="current-card" class="card">
-      <div class="card-left">
-        <h2>Current</h2>
-        <div class="aqi-value">
-          <span id="aqi">--</span>
-          <small>AQI</small>
-        </div>
-        <div class="meta">
-          <div>Category: <strong id="category">--</strong></div>
-          <div>Risk: <strong id="risk">--</strong></div>
-          <div>Device: <strong id="device">--</strong></div>
-        </div>
+<!-- DASHBOARD PAGE -->
+<div id="dashboard" style="display: none;">
+  <header>
+    <div class="header-top">
+      <div>
+        <h1>Air Quality Monitor</h1>
+        <p class="subtitle">Real-time AQI tracking and health guidance</p>
       </div>
-      <div class="card-right">
-        <div>Last updated</div>
-        <div id="time">--</div>
+      <div class="user-info">
+        <span id="user-display">Welcome!</span>
+        <button class="logout-btn" onclick="handleLogout()">Logout</button>
       </div>
-    </section>
+    </div>
+    <div id="notification-banner"></div>
+  </header>
 
-    <section class="card">
-      <h2>AQI Gauge</h2>
-      <div class="gauge-wrap">
-        <canvas id="aqi-gauge"></canvas>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Last 60 minutes (PM2.5)</h2>
-      <div class="chart-wrap">
-        <canvas id="chart"></canvas>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>AQI Trend (last 24h)</h2>
-      <div class="chart-wrap">
-        <canvas id="aqi-trend-chart"></canvas>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Average Pollutants (last 24h)</h2>
-      <div class="chart-wrap small-chart">
-        <canvas id="pollutants-bar"></canvas>
-      </div>
-    </section>
-
-    <section class="card" id="history-table-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-          <h2 style="margin:0">History (rows & columns)</h2>
-          <label style="display:flex;align-items:center;gap:6px;margin-left:6px">Filter device:
-            <input id="filter-device" type="text" placeholder="device id or substring" style="padding:6px;border-radius:6px;border:1px solid #e6eef8" />
-          </label>
-          <label style="display:flex;align-items:center;gap:6px">Range:
-            <select id="filter-minutes" style="padding:6px;border-radius:6px;border:1px solid #e6eef8">
-              <option value="60">Last 60 minutes</option>
-              <option value="1440" selected>Last 24 hours</option>
-              <option value="10080">Last 7 days</option>
-            </select>
-          </label>
-          <label style="display:flex;align-items:center;gap:6px">Page size:
-            <select id="page-size" style="padding:6px;border-radius:6px;border:1px solid #e6eef8">
-              <option value="5">5</option>
-              <option value="10" selected>10</option>
-              <option value="25">25</option>
-            </select>
-          </label>
-          <label style="display:flex;align-items:center;gap:6px">Auto-scroll:
-            <input id="auto-scroll" type="checkbox" />
-          </label>
+  <div class="container">
+    <div class="grid-2">
+      <!-- Settings Card -->
+      <div class="card">
+        <h2>Notification Preferences</h2>
+        
+        <div class="settings-section">
+          <div class="setting-item">
+            <span class="setting-label">Email</span>
+            <input type="text" id="user-email" style="width: 200px; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
+          </div>
         </div>
 
-        <div>
-          <button id="refresh-table" class="btn">Refresh</button>
-          <button id="export-csv" class="btn">Export CSV</button>
+        <div class="settings-section">
+          <div class="setting-item">
+            <span class="setting-label">Phone Number</span>
+            <input type="text" id="user-phone" style="width: 200px; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="setting-item">
+            <span class="setting-label">Email Notifications</span>
+            <label class="toggle">
+              <input type="checkbox" id="email-notifications" checked>
+              <span id="email-notif-status">Enabled</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="setting-item">
+            <span class="setting-label">Phone Notifications (SMS)</span>
+            <label class="toggle">
+              <input type="checkbox" id="phone-notifications" checked>
+              <span id="phone-notif-status">Enabled</span>
+            </label>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="savePreferences()" style="margin-top: 16px;">Save Preferences</button>
+        <div id="pref-message" style="margin-top: 12px; display: none;"></div>
+      </div>
+
+      <!-- Current AQI Card -->
+      <div class="card">
+        <h2>Current Air Quality</h2>
+        <div id="latest-reading" style="padding: 20px; text-align: center;">
+          <div style="font-size: 48px; font-weight: bold; color: #667eea; margin: 16px 0;" id="aqi-value">--</div>
+          <div id="aqi-category" style="font-size: 18px; color: #666; margin-bottom: 12px;">--</div>
+          <div id="aqi-details" style="font-size: 13px; color: #999; line-height: 1.6;">Loading...</div>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;margin-top:6px;flex-wrap:wrap">
-        <input id="csv-file" type="file" accept=".csv" />
-        <button id="upload-csv-btn" class="btn">Upload CSV</button>
-        <div id="upload-status" style="color:var(--muted);font-size:13px"></div>
+    </div>
+
+    <!-- Charts -->
+    <div class="card">
+      <h2>PM2.5 Trend (Last 24 Hours)</h2>
+      <div class="chart-container">
+        <canvas id="pm25-chart"></canvas>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h2>AQI Distribution</h2>
+        <div class="chart-container">
+          <canvas id="aqi-chart"></canvas>
+        </div>
       </div>
 
-      <div class="table-wrap">
-        <table id="history-table">
-          <thead>
-            <tr>
-              <th style="width:60px">#</th>
-              <th>timestamp</th>
-              <th>device_id</th>
-              <th>pm2_5</th>
-              <th>pm10</th>
-              <th>aqi</th>
-              <th>aqi_category</th>
-              <th>risk_level</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- rows inserted by script -->
-          </tbody>
-        </table>
+      <div class="card">
+        <h2>Pollutant Averages</h2>
+        <div class="chart-container">
+          <canvas id="pollutants-chart"></canvas>
+        </div>
       </div>
-    </section>
-  </main>
+    </div>
 
-  <footer>
-    <small>Served by backend API</small>
-  </footer>
+    <!-- History Table -->
+    <div class="card">
+      <h2>Recent Readings</h2>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Device</th>
+            <th>AQI</th>
+            <th>PM2.5</th>
+            <th>PM10</th>
+            <th>NO₂</th>
+            <th>O₃</th>
+            <th>Temp</th>
+          </tr>
+        </thead>
+        <tbody id="history-table">
+          <tr><td colspan="8" style="text-align: center; color: #999;">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="/static/script.js"></script>
+<script src="/static/script.js"></script>
 </body>
 </html>

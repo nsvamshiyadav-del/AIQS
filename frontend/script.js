@@ -1,17 +1,321 @@
-// frontend/script.js
+// ==================== AUTH STATE ====================
+let authToken = localStorage.getItem('authToken');
+let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
 
-const API_PREFIX = "/api";
+// ==================== PAGE INITIALIZATION ====================
+document.addEventListener('DOMContentLoaded', () => {
+  if (authToken && currentUser) {
+    showDashboard();
+    loadDashboardData();
+  } else {
+    showAuthPage();
+  }
+});
 
-let chart; // global chart variable
-let chartAQI = null;
-let chartPoll = null;
-let fullHistory = [];
-let currentPage = 1;
-let pageSize = 10;
-let autoScroll = false;
-let chartGauge = null;
-let authToken = null;
-let currentUser = null;
+// ==================== AUTH UI CONTROLS ====================
+function switchToLogin() {
+  document.getElementById('login-section').style.display = 'block';
+  document.getElementById('register-section').style.display = 'none';
+  document.querySelectorAll('.tab-btn').forEach((btn, idx) => {
+    btn.classList.toggle('active', idx === 0);
+  });
+}
+
+function switchToRegister() {
+  document.getElementById('login-section').style.display = 'none';
+  document.getElementById('register-section').style.display = 'block';
+  document.querySelectorAll('.tab-btn').forEach((btn, idx) => {
+    btn.classList.toggle('active', idx === 1);
+  });
+}
+
+function showAuthPage() {
+  document.getElementById('auth-page').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+}
+
+function showDashboard() {
+  document.getElementById('auth-page').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  if (currentUser) {
+    document.getElementById('user-display').textContent = `Welcome, ${currentUser.username}!`;
+    document.getElementById('user-email').value = currentUser.email || '';
+    document.getElementById('user-phone').value = currentUser.phone || '';
+    document.getElementById('email-notifications').checked = currentUser.email_notifications !== false;
+    document.getElementById('phone-notifications').checked = currentUser.phone_notifications !== false;
+  }
+}
+
+// ==================== LOGIN/REGISTER HANDLERS ====================
+async function handleLogin(event) {
+  event.preventDefault();
+  const username = document.getElementById('login-username').value;
+  const password = document.getElementById('login-password').value;
+  const errorDiv = document.getElementById('login-error');
+  errorDiv.style.display = 'none';
+
+  try {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      authToken = data.access_token;
+      currentUser = data.user;
+      localStorage.setItem('authToken', authToken);
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      showDashboard();
+      loadDashboardData();
+      document.getElementById('login-username').value = '';
+      document.getElementById('login-password').value = '';
+    } else {
+      const error = await response.json();
+      errorDiv.textContent = error.detail || 'Login failed';
+      errorDiv.style.display = 'block';
+    }
+  } catch (err) {
+    errorDiv.textContent = 'Error: ' + err.message;
+    errorDiv.style.display = 'block';
+  }
+}
+
+async function handleRegister(event) {
+  event.preventDefault();
+  const username = document.getElementById('register-username').value;
+  const email = document.getElementById('register-email').value;
+  const phone = document.getElementById('register-phone').value;
+  const password = document.getElementById('register-password').value;
+  const errorDiv = document.getElementById('register-error');
+  errorDiv.style.display = 'none';
+
+  try {
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, phone, password })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      authToken = data.access_token;
+      currentUser = data.user;
+      localStorage.setItem('authToken', authToken);
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      showDashboard();
+      loadDashboardData();
+      document.getElementById('register-username').value = '';
+      document.getElementById('register-email').value = '';
+      document.getElementById('register-phone').value = '';
+      document.getElementById('register-password').value = '';
+    } else {
+      const error = await response.json();
+      errorDiv.textContent = error.detail || 'Registration failed';
+      errorDiv.style.display = 'block';
+    }
+  } catch (err) {
+    errorDiv.textContent = 'Error: ' + err.message;
+    errorDiv.style.display = 'block';
+  }
+}
+
+function handleLogout() {
+  authToken = null;
+  currentUser = null;
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('currentUser');
+  showAuthPage();
+  switchToLogin();
+}
+
+// ==================== PREFERENCES MANAGEMENT ====================
+async function savePreferences() {
+  const email = document.getElementById('user-email').value;
+  const phone = document.getElementById('user-phone').value;
+  const emailNotif = document.getElementById('email-notifications').checked;
+  const phoneNotif = document.getElementById('phone-notifications').checked;
+  const msgDiv = document.getElementById('pref-message');
+
+  try {
+    const response = await fetch('/api/auth/preferences', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        email,
+        phone,
+        email_notifications: emailNotif,
+        phone_notifications: phoneNotif
+      })
+    });
+
+    if (response.ok) {
+      const updated = await response.json();
+      currentUser = updated;
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      msgDiv.textContent = 'Preferences saved successfully!';
+      msgDiv.style.display = 'block';
+      msgDiv.style.color = '#22863a';
+      msgDiv.style.background = '#f6ffed';
+      setTimeout(() => msgDiv.style.display = 'none', 3000);
+    } else {
+      msgDiv.textContent = 'Failed to save preferences';
+      msgDiv.style.display = 'block';
+      msgDiv.style.color = '#e53e3e';
+      msgDiv.style.background = '#fff5f5';
+    }
+  } catch (err) {
+    msgDiv.textContent = 'Error: ' + err.message;
+    msgDiv.style.display = 'block';
+  }
+}
+
+// ==================== DASHBOARD DATA LOADING ====================
+let pm25Chart, aqiChart, pollutantsChart;
+
+async function loadDashboardData() {
+  fetchLatestReading();
+  fetchHistoryData();
+  setInterval(fetchLatestReading, 30000); // Refresh every 30s
+  setInterval(fetchHistoryData, 60000); // Refresh every 60s
+}
+
+async function fetchLatestReading() {
+  try {
+    const response = await fetch('/api/latest');
+    if (response.ok) {
+      const data = await response.json();
+      document.getElementById('aqi-value').textContent = data.aqi?.toFixed(1) || '--';
+      document.getElementById('aqi-category').textContent = data.aqi_category || '--';
+      
+      const details = `
+        PM2.5: ${data.pm2_5?.toFixed(1) || '--'} µg/m³
+        Temperature: ${data.temperature?.toFixed(1) || '--'}°C
+        Humidity: ${data.humidity?.toFixed(0) || '--'}%
+        Device: ${data.device_id || '--'}
+      `;
+      document.getElementById('aqi-details').textContent = details;
+    }
+  } catch (err) {
+    console.error('Error fetching latest:', err);
+  }
+}
+
+async function fetchHistoryData() {
+  try {
+    const response = await fetch('/api/history?minutes=1440');
+    if (response.ok) {
+      const data = await response.json();
+      updateCharts(data);
+      updateTable(data);
+    }
+  } catch (err) {
+    console.error('Error fetching history:', err);
+  }
+}
+
+function updateCharts(readings) {
+  if (!readings || readings.length === 0) return;
+
+  const labels = readings.map(r => new Date(r.timestamp).toLocaleTimeString());
+  const pm25Data = readings.map(r => r.pm2_5);
+  const aqiData = readings.map(r => r.aqi);
+  const pollutantNames = ['PM2.5', 'PM10', 'CO', 'NO₂', 'O₃', 'SO₂'];
+  const pollutantData = [
+    (readings.reduce((sum, r) => sum + (r.pm2_5 || 0), 0) / readings.length).toFixed(1),
+    (readings.reduce((sum, r) => sum + (r.pm10 || 0), 0) / readings.length).toFixed(1),
+    (readings.reduce((sum, r) => sum + (r.co || 0), 0) / readings.length).toFixed(2),
+    (readings.reduce((sum, r) => sum + (r.no2 || 0), 0) / readings.length).toFixed(1),
+    (readings.reduce((sum, r) => sum + (r.o3 || 0), 0) / readings.length).toFixed(1),
+    (readings.reduce((sum, r) => sum + (r.so2 || 0), 0) / readings.length).toFixed(1),
+  ];
+
+  // PM2.5 Trend
+  const ctx1 = document.getElementById('pm25-chart');
+  if (pm25Chart) pm25Chart.destroy();
+  pm25Chart = new Chart(ctx1, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'PM2.5 (µg/m³)',
+        data: pm25Data,
+        borderColor: '#667eea',
+        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+        tension: 0.3,
+        fill: true
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false }
+  });
+
+  // AQI Distribution
+  const ctx2 = document.getElementById('aqi-chart');
+  if (aqiChart) aqiChart.destroy();
+  aqiChart = new Chart(ctx2, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'AQI',
+        data: aqiData,
+        borderColor: '#f59e0b',
+        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+        tension: 0.3,
+        fill: true
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false }
+  });
+
+  // Pollutants Bar Chart
+  const ctx3 = document.getElementById('pollutants-chart');
+  if (pollutantsChart) pollutantsChart.destroy();
+  pollutantsChart = new Chart(ctx3, {
+    type: 'bar',
+    data: {
+      labels: pollutantNames,
+      datasets: [{
+        label: 'Average (24h)',
+        data: pollutantData,
+        backgroundColor: '#667eea'
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y' }
+  });
+}
+
+function updateTable(readings) {
+  const tbody = document.getElementById('history-table').querySelector('tbody');
+  tbody.innerHTML = '';
+
+  if (!readings || readings.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No data available</td></tr>';
+    return;
+  }
+
+  readings.slice(0, 20).forEach(r => {
+    const row = tbody.insertRow();
+    const time = new Date(r.timestamp).toLocaleString();
+    
+    const aqiBadgeClass = r.aqi < 50 ? 'aqi-good' : r.aqi < 100 ? 'aqi-moderate' : 'aqi-unhealthy';
+    
+    row.innerHTML = `
+      <td>${time}</td>
+      <td>${r.device_id}</td>
+      <td><span class="aqi-badge ${aqiBadgeClass}">${r.aqi?.toFixed(1)}</span></td>
+      <td>${r.pm2_5?.toFixed(1)}</td>
+      <td>${r.pm10?.toFixed(1)}</td>
+      <td>${r.no2?.toFixed(1)}</td>
+      <td>${r.o3?.toFixed(1)}</td>
+      <td>${r.temperature?.toFixed(1)}°C</td>
+    `;
+  });
+}
 
 function setAQIState(aqi) {
   document.body.classList.remove("aqi-good", "aqi-moderate", "aqi-bad");
