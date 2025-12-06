@@ -77,8 +77,9 @@ If your API is not at the default URL, pass `--url` with the full ingest endpoin
 - That file is created automatically when the app first runs.
 
 **Git / hygiene notes**
-- It's recommended to add a `.gitignore` to exclude `__pycache__/`, virtual envs, and `backend/airquality.db`.
-- Note: the current repository may already include the DB and some `__pycache__` files. If you want, I can help add a `.gitignore`, remove those files from the index, and (optionally) purge them from history.
+- A `.gitignore` file has been added to exclude `__pycache__/`, virtual envs (`venv/`, `.venv/`), `backend/airquality.db`, and other common build artifacts.
+- The SQLite database and Python cache files have been removed from the repository index and will not be tracked going forward.
+- When you first clone this repo or run it locally, the database will be created automatically on startup.
 
 **Next steps / Helpful commands**
 - Set global git identity if you want commits attributed to you:
@@ -88,7 +89,7 @@ git config --global user.name "Your Name"
 git config --global user.email "you@example.com"
 ```
 
-- Create a `.gitignore` (example):
+- Create a `.gitignore` (example) — ✓ already added:
 ```
 __pycache__/
 *.pyc
@@ -100,13 +101,6 @@ backend/airquality.db
 
 ```powershell
 git add README.md
-git commit -m "Add project README"
+git commit -m "Update README"
 git push
 ```
-
-If you'd like, I can:
-- add a `.gitignore` and remove `backend/airquality.db` and `__pycache__` from the repo index;
-- amend the README with contributor, license, or deployment instructions;
-- open the repo in your browser.
-
-Enjoy — let me know which next step you want me to take.
