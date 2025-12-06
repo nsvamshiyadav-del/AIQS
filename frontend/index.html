@@ -10,9 +10,15 @@
   <header>
     <h1>Real-Time Air Quality Monitor</h1>
     <p class="subtitle">Live AQI, PM2.5 trends and health guidance</p>
+    <div id="notification-banner" style="display:none;padding:12px;margin-top:12px;background:#10b981;color:white;border-radius:6px;font-weight:500"></div>
   </header>
 
   <main>
+    <section class="card" id="notifications-card" style="display:none;background:#f0fdf4;border-left:4px solid #10b981">
+      <h2>📢 Latest Notifications</h2>
+      <div id="notifications-list" style="max-height:200px;overflow-y:auto"></div>
+    </section>
+
     <section id="current-card" class="card">
       <div class="card-left">
         <h2>Current</h2>

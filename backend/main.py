@@ -6,17 +6,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
 from pathlib import Path
-import uvicorn
-from fastapi import FastAPI, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-import os
-from pathlib import Path
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timedelta
+import random
+from apscheduler.schedulers.background import BackgroundScheduler
+import logging
 
 # Local/package imports: try to support both running from project root (as package)
 # and running inside the `backend/` folder directly.
@@ -33,12 +29,19 @@ except Exception:
     from aqi_logic import calculate_aqi, classify_aqi, risk_level_from_aqi
     _UVICORN_TARGET = "main:app"
 
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Create the tables in the database
 Base.metadata.create_all(bind=engine)
 
 # Initialize App
-# Initialize App (use lowercase `app` for uvicorn)
 app = FastAPI(title="AI Air Quality API")
+
+# Store for notification data
+notification_store = {"latest": None, "notifications": []}
+scheduler = None
 
 # Enable CORS for local frontend access (adjust origins for production)
 app.add_middleware(
@@ -68,11 +71,10 @@ def get_db():
     finally:
         db.close()
 
-# --- Pydantic Models ---
 class ReadingIn(BaseModel):
     device_id: str
     pm2_5: float 
-    pm10:float
+    pm10: float
     co: float
     no2: float
     o3: float
@@ -93,7 +95,84 @@ class ReadingOut(BaseModel):
     class Config:
         orm_mode = True
 
+
+class NotificationMessage(BaseModel):
+    timestamp: str
+    message: str
+    aqi: float
+    category: str
+    risk_level: str
+
+
+# --- Hourly Data Collection & Notification ---
+def collect_and_notify():
+    """Collect data hourly and generate notifications."""
+    try:
+        db = SessionLocal()
+        
+        # Get latest reading
+        latest = db.query(Reading).order_by(Reading.timestamp.desc()).first()
+        
+        if latest:
+            # Generate notification message
+            msg = f"🌍 Hourly Air Quality Report: AQI is {latest.aqi:.1f} ({latest.aqi_category}). Risk Level: {latest.risk_level}"
+            
+            notification = {
+                "timestamp": datetime.utcnow().isoformat(),
+                "message": msg,
+                "aqi": latest.aqi,
+                "category": latest.aqi_category,
+                "risk_level": latest.risk_level,
+                "device_id": latest.device_id
+            }
+            
+            # Store notification (keep last 24 hours worth)
+            notification_store["latest"] = notification
+            notification_store["notifications"].append(notification)
+            
+            # Keep only last 100 notifications (roughly 4 days at hourly)
+            if len(notification_store["notifications"]) > 100:
+                notification_store["notifications"] = notification_store["notifications"][-100:]
+            
+            logger.info(f"Hourly notification sent: {msg}")
+        
+        db.close()
+    except Exception as e:
+        logger.error(f"Error in collect_and_notify: {e}")
+
+
+def start_scheduler():
+    """Start background scheduler for hourly tasks."""
+    global scheduler
+    try:
+        scheduler = BackgroundScheduler()
+        # Schedule hourly collection and notification at minute 0 of each hour
+        scheduler.add_job(collect_and_notify, 'interval', hours=1, id='hourly_collect')
+        scheduler.start()
+        logger.info("Scheduler started: hourly data collection enabled")
+    except Exception as e:
+        logger.error(f"Error starting scheduler: {e}")
+
+
+# --- Pydantic Models ---
+
 # --- Routes ---
+@app.on_event("startup")
+async def startup_event():
+    """Start scheduler on app startup."""
+    start_scheduler()
+    logger.info("App started")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Shutdown scheduler on app shutdown."""
+    global scheduler
+    if scheduler:
+        scheduler.shutdown()
+    logger.info("App shut down")
+
+
 @app.get("/")
 def root():
     # Serve the frontend index if available using absolute path
@@ -128,6 +207,10 @@ def ingest_data(reading: ReadingIn, db: Session = Depends(get_db)):
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)
+    
+    # Trigger immediate notification on data ingest
+    collect_and_notify()
+    
     return db_obj
 
 
@@ -207,7 +290,31 @@ def ingest_bulk(readings: List[ReadingIn], db: Session = Depends(get_db)):
     for o in objs:
         db.refresh(o)
 
+    # Trigger notification after bulk ingest
+    collect_and_notify()
+
     return objs
+
+
+# --- Notification Endpoints ---
+@app.get("/api/notifications")
+def get_notifications(limit: int = 10):
+    """Get recent notifications."""
+    notifications = notification_store["notifications"][-limit:]
+    return {"notifications": notifications, "latest": notification_store["latest"]}
+
+
+@app.get("/api/latest-notification")
+def get_latest_notification() -> Optional[dict]:
+    """Get the latest notification."""
+    return notification_store["latest"]
+
+
+@app.post("/api/trigger-notification")
+def trigger_notification_manual(db: Session = Depends(get_db)):
+    """Manual trigger for testing notifications."""
+    collect_and_notify()
+    return {"status": "Notification triggered", "latest": notification_store["latest"]}
 
 
 if __name__ == "__main__":

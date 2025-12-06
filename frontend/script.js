@@ -42,6 +42,47 @@ async function fetchLatest() {
   }
 }
 
+async function fetchNotifications() {
+  try {
+    const res = await fetch(`${API_PREFIX}/notifications?limit=5`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    
+    if (data.latest) {
+      // Show latest notification in banner
+      const banner = document.getElementById('notification-banner');
+      banner.textContent = data.latest.message;
+      banner.style.display = 'block';
+      
+      // Also show in browser if available
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Air Quality Alert', {
+          body: data.latest.message,
+          icon: '/static/icon.png'
+        });
+      }
+    }
+    
+    // Display notification list
+    const notifList = document.getElementById('notifications-list');
+    const card = document.getElementById('notifications-card');
+    
+    if (data.notifications && data.notifications.length > 0) {
+      card.style.display = 'block';
+      notifList.innerHTML = '';
+      data.notifications.forEach(n => {
+        const div = document.createElement('div');
+        div.style.cssText = 'padding:8px;margin:6px 0;background:white;border-radius:4px;font-size:13px;border-left:3px solid #10b981';
+        const time = new Date(n.timestamp).toLocaleString();
+        div.innerHTML = `<strong>${time}</strong><br>${n.message}`;
+        notifList.appendChild(div);
+      });
+    }
+  } catch (err) {
+    console.error('fetchNotifications error', err);
+  }
+}
+
 function getAQIColor(aqi){
   // standard AQI categories with colors
   if (aqi <= 50) return '#10b981'; // Good (green)
@@ -288,10 +329,15 @@ function exportTableToCSV(filename = 'airquality_history.csv') {
 }
 
 async function refreshAll() {
-  await Promise.all([fetchLatest(), fetchHistory(), fetchHistoryTable()]);
+  await Promise.all([fetchLatest(), fetchHistory(), fetchHistoryTable(), fetchNotifications()]);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Request notification permission
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+  
   // wire up buttons
   document.getElementById('refresh-table').addEventListener('click', () => fetchHistoryTable());
   document.getElementById('export-csv').addEventListener('click', () => exportTableToCSV());
@@ -318,6 +364,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // initial load
   refreshAll();
   setInterval(refreshAll, 30000);
+  // Check notifications more frequently (every 5 minutes)
+  setInterval(fetchNotifications, 300000);
 });
 
 function applyFilterAndPaginate() {
