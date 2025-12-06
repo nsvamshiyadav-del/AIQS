@@ -10,6 +10,8 @@ let currentPage = 1;
 let pageSize = 10;
 let autoScroll = false;
 let chartGauge = null;
+let authToken = null;
+let currentUser = null;
 
 function setAQIState(aqi) {
   document.body.classList.remove("aqi-good", "aqi-moderate", "aqi-bad");
@@ -333,6 +335,14 @@ async function refreshAll() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Check if user is already logged in
+  checkAuth().then(isLoggedIn => {
+    // Show auth modal if not logged in
+    if (!isLoggedIn) {
+      openAuthModal();
+    }
+  });
+  
   // Request notification permission
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission();
@@ -489,5 +499,163 @@ async function handleCSVFileUpload(file) {
     console.error('upload error', err);
     statusEl.textContent = `Upload error: ${err.message}`;
   }
+}
+
+// --- Authentication Functions ---
+function saveAuthToken(token) {
+  authToken = token;
+  localStorage.setItem('auth_token', token);
+}
+
+function getAuthToken() {
+  return localStorage.getItem('auth_token');
+}
+
+function clearAuth() {
+  authToken = null;
+  currentUser = null;
+  localStorage.removeItem('auth_token');
+  updateAuthUI();
+}
+
+function updateAuthUI() {
+  const authBtn = document.getElementById('auth-btn');
+  const userDisplay = document.getElementById('user-display');
+  
+  if (currentUser) {
+    authBtn.textContent = 'Logout';
+    authBtn.onclick = () => { clearAuth(); location.reload(); };
+    userDisplay.textContent = `👤 ${currentUser.username}`;
+  } else {
+    authBtn.textContent = 'Login';
+    authBtn.onclick = () => openAuthModal();
+    userDisplay.textContent = '';
+  }
+}
+
+function openAuthModal() {
+  document.getElementById('auth-modal').classList.add('show');
+}
+
+function closeAuthModal() {
+  document.getElementById('auth-modal').classList.remove('show');
+}
+
+function switchToLogin(e) {
+  e.preventDefault();
+  document.getElementById('login-form').style.display = 'block';
+  document.getElementById('register-form').style.display = 'none';
+  document.getElementById('login-error').textContent = '';
+}
+
+function switchToRegister(e) {
+  e.preventDefault();
+  document.getElementById('login-form').style.display = 'none';
+  document.getElementById('register-form').style.display = 'block';
+  document.getElementById('register-error').textContent = '';
+}
+
+async function handleLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errorEl = document.getElementById('login-error');
+  
+  if (!username || !password) {
+    errorEl.textContent = 'Please enter username and password';
+    return;
+  }
+  
+  try {
+    const res = await fetch(`${API_PREFIX}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    
+    if (!res.ok) {
+      const err = await res.json();
+      errorEl.textContent = err.detail || 'Login failed';
+      return;
+    }
+    
+    const data = await res.json();
+    saveAuthToken(data.access_token);
+    currentUser = data.user;
+    updateAuthUI();
+    closeAuthModal();
+    refreshAll();
+  } catch (err) {
+    errorEl.textContent = `Error: ${err.message}`;
+  }
+}
+
+async function handleRegister() {
+  const username = document.getElementById('register-username').value.trim();
+  const email = document.getElementById('register-email').value.trim();
+  const password = document.getElementById('register-password').value;
+  const errorEl = document.getElementById('register-error');
+  
+  if (!username || !email || !password) {
+    errorEl.textContent = 'Please fill all fields';
+    return;
+  }
+  
+  if (password.length < 6) {
+    errorEl.textContent = 'Password must be at least 6 characters';
+    return;
+  }
+  
+  try {
+    const res = await fetch(`${API_PREFIX}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password })
+    });
+    
+    if (!res.ok) {
+      const err = await res.json();
+      errorEl.textContent = err.detail || 'Registration failed';
+      return;
+    }
+    
+    const data = await res.json();
+    saveAuthToken(data.access_token);
+    currentUser = data.user;
+    updateAuthUI();
+    closeAuthModal();
+    refreshAll();
+  } catch (err) {
+    errorEl.textContent = `Error: ${err.message}`;
+  }
+}
+
+function getAuthHeaders() {
+  const token = getAuthToken();
+  if (token) {
+    return { 'Authorization': `Bearer ${token}` };
+  }
+  return {};
+}
+
+// Check if already logged in on load
+async function checkAuth() {
+  const token = getAuthToken();
+  if (token) {
+    try {
+      authToken = token;
+      const res = await fetch(`${API_PREFIX}/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        currentUser = await res.json();
+        updateAuthUI();
+        return true;
+      }
+    } catch (err) {
+      console.error('Auth check error', err);
+      clearAuth();
+    }
+  }
+  return false;
 }
 

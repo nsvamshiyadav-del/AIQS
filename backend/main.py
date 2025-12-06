@@ -1,6 +1,6 @@
 # backend/main.py
 import uvicorn
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -21,12 +21,20 @@ try:
     from backend.database import SessionLocal, engine, Base
     from backend.models import Reading
     from backend.aqi_logic import calculate_aqi, classify_aqi, risk_level_from_aqi
+    from backend.user_models import User
+    from backend.auth import hash_password, verify_password, create_access_token, get_current_user
+    from backend.user_models import UserCreate, UserLogin, UserResponse, TokenResponse
+    from backend.email_service import send_notification_email, send_welcome_email
     _UVICORN_TARGET = "backend.main:app"
 except Exception:
     # fallback when running inside backend/: `uvicorn main:app`
     from database import SessionLocal, engine, Base
     from models import Reading
     from aqi_logic import calculate_aqi, classify_aqi, risk_level_from_aqi
+    from user_models import User
+    from auth import hash_password, verify_password, create_access_token, get_current_user
+    from user_models import UserCreate, UserLogin, UserResponse, TokenResponse
+    from email_service import send_notification_email, send_welcome_email
     _UVICORN_TARGET = "main:app"
 
 # Setup logging
@@ -135,6 +143,22 @@ def collect_and_notify():
                 notification_store["notifications"] = notification_store["notifications"][-100:]
             
             logger.info(f"Hourly notification sent: {msg}")
+            
+            # Send emails to users with notifications enabled
+            try:
+                users = db.query(User).filter(User.is_active == True, User.email_notifications == True).all()
+                for user in users:
+                    send_notification_email(
+                        user.email,
+                        latest.aqi,
+                        latest.aqi_category,
+                        latest.risk_level
+                    )
+                    user.last_notified = datetime.utcnow()
+                db.commit()
+                logger.info(f"Sent email notifications to {len(users)} users")
+            except Exception as e:
+                logger.error(f"Error sending emails: {e}")
         
         db.close()
     except Exception as e:
@@ -294,6 +318,79 @@ def ingest_bulk(readings: List[ReadingIn], db: Session = Depends(get_db)):
     collect_and_notify()
 
     return objs
+
+
+# --- User Authentication Endpoints ---
+@app.post("/api/auth/register", response_model=TokenResponse)
+def register(user_data: UserCreate, db: Session = Depends(get_db)):
+    """Register a new user."""
+    # Check if user exists
+    existing_user = db.query(User).filter(User.username == user_data.username).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already exists")
+    
+    existing_email = db.query(User).filter(User.email == user_data.email).first()
+    if existing_email:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Create new user
+    hashed_pwd = hash_password(user_data.password)
+    new_user = User(
+        username=user_data.username,
+        email=user_data.email,
+        hashed_password=hashed_pwd,
+        email_notifications=True
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    # Send welcome email
+    send_welcome_email(new_user.email, new_user.username)
+    
+    # Create token
+    access_token = create_access_token(data={"sub": new_user.username})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": UserResponse.from_orm(new_user)
+    }
+
+
+@app.post("/api/auth/login", response_model=TokenResponse)
+def login(user_data: UserLogin, db: Session = Depends(get_db)):
+    """Login user."""
+    user = db.query(User).filter(User.username == user_data.username).first()
+    if not user or not verify_password(user_data.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    
+    if not user.is_active:
+        raise HTTPException(status_code=401, detail="User account is inactive")
+    
+    access_token = create_access_token(data={"sub": user.username})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": UserResponse.from_orm(user)
+    }
+
+
+@app.get("/api/auth/me", response_model=UserResponse)
+def get_me(current_user: User = Depends(get_current_user)):
+    """Get current user info."""
+    return current_user
+
+
+@app.put("/api/auth/notifications/{enabled}")
+def toggle_notifications(enabled: bool, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Toggle email notifications for user."""
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user.email_notifications = enabled
+    db.commit()
+    return {"email_notifications": user.email_notifications}
 
 
 # --- Notification Endpoints ---
