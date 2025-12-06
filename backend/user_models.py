@@ -12,6 +12,7 @@ class User(Base):
     __tablename__ = "users"
     
     id = Column(Integer, primary_key=True, index=True)
+    full_name = Column(String, nullable=False)
     username = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     phone = Column(String, nullable=True)
@@ -25,8 +26,9 @@ class User(Base):
 
 # Pydantic schemas
 class UserCreate(BaseModel):
-    username: str
+    full_name: str
     email: str
+    username: str
     phone: str
     password: str
 
@@ -38,6 +40,7 @@ class UserLogin(BaseModel):
 
 class UserResponse(BaseModel):
     id: int
+    full_name: str
     username: str
     email: str
     phone: str | None

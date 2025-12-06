@@ -84,18 +84,32 @@ async function handleLogin(event) {
 
 async function handleRegister(event) {
   event.preventDefault();
-  const username = document.getElementById('register-username').value;
-  const email = document.getElementById('register-email').value;
-  const phone = document.getElementById('register-phone').value;
+  const full_name = document.getElementById('register-name').value.trim();
+  const email = document.getElementById('register-email').value.trim();
+  const username = document.getElementById('register-username').value.trim();
+  const phone = document.getElementById('register-phone').value.trim();
   const password = document.getElementById('register-password').value;
   const errorDiv = document.getElementById('register-error');
   errorDiv.style.display = 'none';
+
+  // Validation
+  if (!full_name || !email || !username || !phone || !password) {
+    errorDiv.textContent = 'All fields are required';
+    errorDiv.style.display = 'block';
+    return;
+  }
+
+  if (password.length < 8) {
+    errorDiv.textContent = 'Password must be at least 8 characters long';
+    errorDiv.style.display = 'block';
+    return;
+  }
 
   try {
     const response = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, email, phone, password })
+      body: JSON.stringify({ full_name, email, username, phone, password })
     });
 
     if (response.ok) {
@@ -106,8 +120,9 @@ async function handleRegister(event) {
       localStorage.setItem('currentUser', JSON.stringify(currentUser));
       showDashboard();
       loadDashboardData();
-      document.getElementById('register-username').value = '';
+      document.getElementById('register-name').value = '';
       document.getElementById('register-email').value = '';
+      document.getElementById('register-username').value = '';
       document.getElementById('register-phone').value = '';
       document.getElementById('register-password').value = '';
     } else {
@@ -841,102 +856,6 @@ function updateAuthUI() {
     authBtn.textContent = 'Login';
     authBtn.onclick = () => openAuthModal();
     userDisplay.textContent = '';
-  }
-}
-
-function openAuthModal() {
-  document.getElementById('auth-modal').classList.add('show');
-}
-
-function closeAuthModal() {
-  document.getElementById('auth-modal').classList.remove('show');
-}
-
-function switchToLogin(e) {
-  e.preventDefault();
-  document.getElementById('login-form').style.display = 'block';
-  document.getElementById('register-form').style.display = 'none';
-  document.getElementById('login-error').textContent = '';
-}
-
-function switchToRegister(e) {
-  e.preventDefault();
-  document.getElementById('login-form').style.display = 'none';
-  document.getElementById('register-form').style.display = 'block';
-  document.getElementById('register-error').textContent = '';
-}
-
-async function handleLogin() {
-  const username = document.getElementById('login-username').value.trim();
-  const password = document.getElementById('login-password').value;
-  const errorEl = document.getElementById('login-error');
-  
-  if (!username || !password) {
-    errorEl.textContent = 'Please enter username and password';
-    return;
-  }
-  
-  try {
-    const res = await fetch(`${API_PREFIX}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
-    });
-    
-    if (!res.ok) {
-      const err = await res.json();
-      errorEl.textContent = err.detail || 'Login failed';
-      return;
-    }
-    
-    const data = await res.json();
-    saveAuthToken(data.access_token);
-    currentUser = data.user;
-    updateAuthUI();
-    closeAuthModal();
-    refreshAll();
-  } catch (err) {
-    errorEl.textContent = `Error: ${err.message}`;
-  }
-}
-
-async function handleRegister() {
-  const username = document.getElementById('register-username').value.trim();
-  const email = document.getElementById('register-email').value.trim();
-  const password = document.getElementById('register-password').value;
-  const errorEl = document.getElementById('register-error');
-  
-  if (!username || !email || !password) {
-    errorEl.textContent = 'Please fill all fields';
-    return;
-  }
-  
-  if (password.length < 6) {
-    errorEl.textContent = 'Password must be at least 6 characters';
-    return;
-  }
-  
-  try {
-    const res = await fetch(`${API_PREFIX}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, email, password })
-    });
-    
-    if (!res.ok) {
-      const err = await res.json();
-      errorEl.textContent = err.detail || 'Registration failed';
-      return;
-    }
-    
-    const data = await res.json();
-    saveAuthToken(data.access_token);
-    currentUser = data.user;
-    updateAuthUI();
-    closeAuthModal();
-    refreshAll();
-  } catch (err) {
-    errorEl.textContent = `Error: ${err.message}`;
   }
 }
 

@@ -327,6 +327,7 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
     # Create new user
     hashed_pwd = hash_password(user_data.password)
     new_user = User(
+        full_name=user_data.full_name,
         username=user_data.username,
         email=user_data.email,
         phone=user_data.phone,
