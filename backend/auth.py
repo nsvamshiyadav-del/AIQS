@@ -4,7 +4,6 @@ from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
 from sqlalchemy.orm import Session
 from user_models import User
 
@@ -14,7 +13,6 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30 * 24  # 30 days
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-security = HTTPBearer()
 
 
 def hash_password(password: str) -> str:
@@ -51,9 +49,13 @@ def verify_token(token: str) -> dict:
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
-async def get_current_user(credentials: HTTPAuthCredentials = Depends(security), db: Session = None) -> User:
+async def get_current_user(authorization: str = Depends(lambda: None), db: Session = None) -> User:
     """Get current authenticated user from token."""
-    token = credentials.credentials
+    # Extract token from Authorization header (Bearer token)
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization[7:]  # Remove "Bearer " prefix
     payload = verify_token(token)
     username = payload.get("sub")
     

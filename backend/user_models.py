@@ -2,7 +2,7 @@
 from sqlalchemy import Column, String, DateTime, Boolean, Integer
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 Base = declarative_base()
 
@@ -41,7 +41,7 @@ class UserResponse(BaseModel):
     email_notifications: bool
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class TokenResponse(BaseModel):

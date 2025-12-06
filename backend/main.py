@@ -14,28 +14,19 @@ import random
 from apscheduler.schedulers.background import BackgroundScheduler
 import logging
 
-# Local/package imports: try to support both running from project root (as package)
-# and running inside the `backend/` folder directly.
-try:
-    # when run as package (recommended): `uvicorn backend.main:app`
-    from backend.database import SessionLocal, engine, Base
-    from backend.models import Reading
-    from backend.aqi_logic import calculate_aqi, classify_aqi, risk_level_from_aqi
-    from backend.user_models import User
-    from backend.auth import hash_password, verify_password, create_access_token, get_current_user
-    from backend.user_models import UserCreate, UserLogin, UserResponse, TokenResponse
-    from backend.email_service import send_notification_email, send_welcome_email
-    _UVICORN_TARGET = "backend.main:app"
-except Exception:
-    # fallback when running inside backend/: `uvicorn main:app`
-    from database import SessionLocal, engine, Base
-    from models import Reading
-    from aqi_logic import calculate_aqi, classify_aqi, risk_level_from_aqi
-    from user_models import User
-    from auth import hash_password, verify_password, create_access_token, get_current_user
-    from user_models import UserCreate, UserLogin, UserResponse, TokenResponse
-    from email_service import send_notification_email, send_welcome_email
-    _UVICORN_TARGET = "main:app"
+# Local/package imports
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from database import SessionLocal, engine, Base
+from models import Reading
+from aqi_logic import calculate_aqi, classify_aqi, risk_level_from_aqi
+from user_models import User, UserCreate, UserLogin, UserResponse, TokenResponse
+from auth import hash_password, verify_password, create_access_token, get_current_user, verify_token
+from email_service import send_notification_email, send_welcome_email
+
+_UVICORN_TARGET = "main:app"
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -101,7 +92,7 @@ class ReadingOut(BaseModel):
     risk_level: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class NotificationMessage(BaseModel):
@@ -345,9 +336,6 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     
-    # Send welcome email
-    send_welcome_email(new_user.email, new_user.username)
-    
     # Create token
     access_token = create_access_token(data={"sub": new_user.username})
     return {
@@ -376,15 +364,30 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
 
 
 @app.get("/api/auth/me", response_model=UserResponse)
-def get_me(current_user: User = Depends(get_current_user)):
+def get_me(authorization: str = None, db: Session = Depends(get_db)):
     """Get current user info."""
-    return current_user
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization[7:]
+    payload = verify_token(token)
+    username = payload.get("sub")
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
 
 
 @app.put("/api/auth/notifications/{enabled}")
-def toggle_notifications(enabled: bool, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def toggle_notifications(enabled: bool, authorization: str = None, db: Session = Depends(get_db)):
     """Toggle email notifications for user."""
-    user = db.query(User).filter(User.id == current_user.id).first()
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization[7:]
+    payload = verify_token(token)
+    username = payload.get("sub")
+    user = db.query(User).filter(User.username == username).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
