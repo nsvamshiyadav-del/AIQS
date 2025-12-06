@@ -157,6 +157,13 @@ async function savePreferences() {
       const updated = await response.json();
       currentUser = updated;
       localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      
+      // Update UI fields with the saved values
+      document.getElementById('user-email').value = currentUser.email || '';
+      document.getElementById('user-phone').value = currentUser.phone || '';
+      document.getElementById('email-notifications').checked = currentUser.email_notifications;
+      document.getElementById('phone-notifications').checked = currentUser.phone_notifications;
+      
       msgDiv.textContent = 'Preferences saved successfully!';
       msgDiv.style.display = 'block';
       msgDiv.style.color = '#22863a';

@@ -53,3 +53,10 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str
     user: UserResponse
+
+
+class PreferencesUpdate(BaseModel):
+    email: str | None = None
+    phone: str | None = None
+    email_notifications: bool | None = None
+    phone_notifications: bool | None = None

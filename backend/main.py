@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from database import SessionLocal, engine, Base
 from models import Reading
 from aqi_logic import calculate_aqi, classify_aqi, risk_level_from_aqi
-from user_models import User, UserCreate, UserLogin, UserResponse, TokenResponse
+from user_models import User, UserCreate, UserLogin, UserResponse, TokenResponse, PreferencesUpdate
 from auth import hash_password, verify_password, create_access_token, get_current_user, verify_token
 from email_service import send_notification_email, send_welcome_email
 
@@ -399,7 +399,7 @@ def toggle_notifications(enabled: bool, authorization: str = None, db: Session =
 
 
 @app.put("/api/auth/preferences")
-def update_preferences(preferences: dict, authorization: str = None, db: Session = Depends(get_db)):
+def update_preferences(preferences: PreferencesUpdate, authorization: str = None, db: Session = Depends(get_db)):
     """Update user notification preferences and phone number."""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -412,14 +412,14 @@ def update_preferences(preferences: dict, authorization: str = None, db: Session
         raise HTTPException(status_code=404, detail="User not found")
     
     # Update preferences
-    if "email" in preferences:
-        user.email = preferences["email"]
-    if "phone" in preferences:
-        user.phone = preferences["phone"]
-    if "email_notifications" in preferences:
-        user.email_notifications = preferences["email_notifications"]
-    if "phone_notifications" in preferences:
-        user.phone_notifications = preferences["phone_notifications"]
+    if preferences.email is not None:
+        user.email = preferences.email
+    if preferences.phone is not None:
+        user.phone = preferences.phone
+    if preferences.email_notifications is not None:
+        user.email_notifications = preferences.email_notifications
+    if preferences.phone_notifications is not None:
+        user.phone_notifications = preferences.phone_notifications
     
     db.commit()
     db.refresh(user)
